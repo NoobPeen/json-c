@@ -1,0 +1,10 @@
+{
+    "name": "John",
+    "age": 3,
+    "number": -3.6,
+    "alive":true,
+    "properties": {
+      "skills": ["\"fast\"", "smart"],
+      "null": null
+    }
+  }
