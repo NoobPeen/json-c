@@ -9,23 +9,24 @@
 // Options:
 // - DS_IMPLEMENTATION: Define this macro in one source file to include the
 // implementation of all the data structures and utilities
+// - DS_AL_IMPLEMENTATION: Define this macro in one source file to include the
+// implementation of the allocator utility and set the allocator to use
+// - DS_DA_IMPLEMENTATION: Define this macro in one source file to include the
+// implementation of the dynamic array data structure
 // - DS_PQ_IMPLEMENTATION: Define this macro in one source file to include the
 // implementation of the priority queue data structure
 // - DS_SB_IMPLEMENTATION: Define this macro in one source file to include the
 // implementation of the string builder utility
 // - DS_SS_IMPLEMENTATION: Define this macro in one source file to include the
 // implementation of the string slice utility
-// - DS_DA_IMPLEMENTATION: Define this macro in one source file to include the
-// implementation of the dynamic array data structure
 // - DS_LL_IMPLEMENTATION: Define this macro in one source file to include the
 // implementation of the linked list data structure
 // - DS_HM_IMPLEMENTATION: Define this macro in one source file to include the
 // implementation of the hash map data structure
-// - DS_AL_IMPLEMENTATION: Define this macro in one source file to include the
-// implementation of the allocator utility and set the allocator to use
 // - DS_AP_IMPLEMENTATION: Define this macro in one source file to include the
 // implementation of the ds_argument parser utility
 // - DS_IO_IMPLEMENTATION: Define this macro for some io utils
+// - DS_JS_IMPLEMENTATION: Define this macro for JSON utils
 //
 // MEMORY MANAGEMENT
 //
@@ -66,6 +67,12 @@
 #define DSHDEF extern
 #endif
 #endif
+
+// BASIC UTILS
+
+typedef int bool;
+const bool true = 1;
+const bool false = 0;
 
 // ALLOCATOR
 //
@@ -110,8 +117,8 @@ DSHDEF int ds_dynamic_array_append_many(ds_dynamic_array *da, void **new_items,
                                         unsigned int new_items_count);
 DSHDEF int ds_dynamic_array_get(ds_dynamic_array *da, unsigned int index,
                                 void *item);
-DSHDEF void ds_dynamic_array_get_ref(ds_dynamic_array *da, unsigned int index,
-                                     void **item);
+DSHDEF int ds_dynamic_array_get_ref(ds_dynamic_array *da, unsigned int index,
+                                    void **item);
 DSHDEF int ds_dynamic_array_copy(ds_dynamic_array *da, ds_dynamic_array *copy);
 DSHDEF void ds_dynamic_array_sort(ds_dynamic_array *da,
                                   int (*compare)(const void *, const void *));
@@ -142,7 +149,7 @@ DSHDEF void ds_priority_queue_init(ds_priority_queue *pq,
 DSHDEF int ds_priority_queue_insert(ds_priority_queue *pq, void *item);
 DSHDEF int ds_priority_queue_pull(ds_priority_queue *pq, void *item);
 DSHDEF int ds_priority_queue_peek(ds_priority_queue *pq, void *item);
-DSHDEF int ds_priority_queue_empty(ds_priority_queue *pq);
+DSHDEF bool ds_priority_queue_empty(ds_priority_queue *pq);
 DSHDEF void ds_priority_queue_free(ds_priority_queue *pq);
 
 // STRING BUILDER
@@ -190,10 +197,10 @@ DSHDEF int ds_string_slice_trim_left(ds_string_slice *ss, char chr);
 DSHDEF int ds_string_slice_trim_right(ds_string_slice *ss, char chr);
 DSHDEF int ds_string_slice_trim(ds_string_slice *ss, char chr);
 DSHDEF int ds_string_slice_to_owned(ds_string_slice *ss, char **str);
-DSHDEF int ds_string_slice_starts_with(ds_string_slice *ss, ds_string_slice *prefix);
-DSHDEF int ds_string_slice_starts_with_pred(ds_string_slice *ss, int (*predicate)(char));
+DSHDEF bool ds_string_slice_starts_with(ds_string_slice *ss, ds_string_slice *prefix);
+DSHDEF bool ds_string_slice_starts_with_pred(ds_string_slice *ss, bool (*predicate)(char));
 DSHDEF int ds_string_slice_step(ds_string_slice *ss, int count);
-DSHDEF int ds_string_slice_empty(ds_string_slice *ss);
+DSHDEF bool ds_string_slice_empty(ds_string_slice *ss);
 DSHDEF void ds_string_slice_free(ds_string_slice *ss);
 
 // (DOUBLY) LINKED LIST
@@ -221,7 +228,7 @@ DSHDEF int ds_linked_list_push_back(ds_linked_list *ll, void *item);
 DSHDEF int ds_linked_list_push_front(ds_linked_list *ll, void *item);
 DSHDEF int ds_linked_list_pop_back(ds_linked_list *ll, void *item);
 DSHDEF int ds_linked_list_pop_front(ds_linked_list *ll, void *item);
-DSHDEF int ds_linked_list_empty(ds_linked_list *ll);
+DSHDEF bool ds_linked_list_empty(ds_linked_list *ll);
 DSHDEF void ds_linked_list_free(ds_linked_list *ll);
 
 // HASH MAP
@@ -253,6 +260,7 @@ DSHDEF int ds_hashmap_init(ds_hashmap *map, unsigned int capacity,
 DSHDEF int ds_hashmap_insert(ds_hashmap *map, ds_hashmap_kv *kv);
 DSHDEF int ds_hashmap_get(ds_hashmap *map, ds_hashmap_kv *kv);
 DSHDEF int ds_hashmap_delete(ds_hashmap *map, const void *key);
+DSHDEF unsigned int ds_hashmap_count(ds_hashmap *map);
 DSHDEF void ds_hashmap_free(ds_hashmap *map);
 
 // ARGUMENT PARSER
@@ -325,10 +333,47 @@ DSHDEF void ds_argparse_parser_free(struct ds_argparse_parser *parser);
 #define LINE_MAX 4096
 #endif
 
-DSHDEF int ds_io_read_file(const char *path, char **buffer);
-DSHDEF int ds_io_write_file(const char *path, const char *buffer, const char *mode);
-DSHDEF int ds_io_read_binary(const char *filename, char **buffer);
-DSHDEF int ds_io_write_binary(const char *filename, char *buffer, unsigned int buffer_len);
+DSHDEF int ds_io_read(const char *filename, char **buffer, const char *mode);
+DSHDEF int ds_io_write(const char *filename, char *buffer, unsigned int buffer_len, const char *mode);
+
+// JSON
+//
+// Json loader from string. This utility will load a string into a JSON Object
+// data structure. The allowed json objects are mappings, arrays, string,
+// numbers, null or boolean.
+
+typedef enum {
+    JSON_OBJECT_STRING,
+    JSON_OBJECT_NUMBER,
+    JSON_OBJECT_BOOLEAN,
+    JSON_OBJECT_NULL,
+    JSON_OBJECT_ARRAY,
+    JSON_OBJECT_MAP
+} json_object_kind;
+
+typedef struct json_object {
+    json_object_kind kind;
+    union {
+        char *string;
+        double number;
+        bool boolean;
+        ds_dynamic_array array; /* json_object */
+        ds_hashmap map; /* <char* , json_object> */
+    };
+} json_object;
+
+DSHDEF int json_object_load(char *buffer, unsigned int buffer_len, json_object *object);
+DSHDEF int json_object_dump(json_object *object, char **buffer);
+DSHDEF int json_object_debug(json_object *object);
+DSHDEF int json_object_free(json_object *object);
+
+#ifndef JSON_OBJECT_DUMP_INDENT
+#define JSON_OBJECT_DUMP_INDENT 2
+#endif // JSON_OBJECT_DUMP_INDENT
+
+#ifndef JSON_OBJECT_MAP_MAX_CAPACITY
+#define JSON_OBJECT_MAP_MAX_CAPACITY 100
+#endif // JSON_OBJECT_MAP_MAX_CAPACITY
 
 // RETURN DEFER
 //
@@ -579,20 +624,17 @@ static inline void *ds_realloc(void *a, void *ptr, unsigned int old_sz,
 #endif // DS_H
 
 #ifdef DS_IMPLEMENTATION
+#define DS_AL_IMPLEMENTATION
+#define DS_DA_IMPLEMENTATION
 #define DS_PQ_IMPLEMENTATION
 #define DS_SB_IMPLEMENTATION
 #define DS_SS_IMPLEMENTATION
-#define DS_DA_IMPLEMENTATION
 #define DS_LL_IMPLEMENTATION
 #define DS_HM_IMPLEMENTATION
-#define DS_AL_IMPLEMENTATION
 #define DS_AP_IMPLEMENTATION
 #define DS_IO_IMPLEMENTATION
+#define DS_JS_IMPLEMENTATION
 #endif // DS_IMPLEMENTATION
-
-#ifdef DS_IO_IMPLEMENTATION
-#define DS_SB_IMPLEMENTATION
-#endif // DS_IO_IMPLEMENTATION
 
 #ifdef DS_PQ_IMPLEMENTATION
 #define DS_DA_IMPLEMENTATION
@@ -609,6 +651,567 @@ static inline void *ds_realloc(void *a, void *ptr, unsigned int old_sz,
 #ifdef DS_AP_IMPLEMENTATION
 #define DS_DA_IMPLEMENTATION
 #endif // DS_AP_IMPLEMENTATION
+
+#ifdef DS_IO_IMPLEMENTATION
+#define DS_SB_IMPLEMENTATION
+#endif // DS_IO_IMPLEMENTATION
+
+#ifdef DS_JS_IMPLEMENTATION
+#define DS_DA_IMPLEMENTATION
+#define DS_SB_IMPLEMENTATION
+#define DS_SS_IMPLEMENTATION
+#define DS_HM_IMPLEMENTATION
+#endif // DS_JS_IMPLEMENTATION
+
+#ifdef DS_AL_IMPLEMENTATION
+
+static void uint64_read_le(unsigned char *data, unsigned long int *value) {
+    *value = ((unsigned long int)data[0] << 0) | ((unsigned long int)data[1] << 8) |
+             ((unsigned long int)data[2] << 16) | ((unsigned long int)data[3] << 24) |
+             ((unsigned long int)data[4] << 32) | ((unsigned long int)data[5] << 40) |
+             ((unsigned long int)data[6] << 48) | ((unsigned long int)data[7] << 56);
+}
+
+static void uint64_write_le(unsigned char *data, unsigned long int value) {
+    data[0] = (value >> 0) & 0xff;
+    data[1] = (value >> 8) & 0xff;
+    data[2] = (value >> 16) & 0xff;
+    data[3] = (value >> 24) & 0xff;
+    data[4] = (value >> 32) & 0xff;
+    data[5] = (value >> 40) & 0xff;
+    data[6] = (value >> 48) & 0xff;
+    data[7] = (value >> 56) & 0xff;
+}
+
+static void uint32_read_le(unsigned char *data, unsigned int *value) {
+    *value = ((unsigned int)data[0] << 0) | ((unsigned int)data[1] << 8) |
+             ((unsigned int)data[2] << 16) | ((unsigned int)data[3] << 24);
+}
+
+static void uint32_write_le(unsigned char *data, unsigned int value) {
+    data[0] = (value >> 0) & 0xff;
+    data[1] = (value >> 8) & 0xff;
+    data[2] = (value >> 16) & 0xff;
+    data[3] = (value >> 24) & 0xff;
+}
+
+#define BLOCK_METADATA_SIZE 28
+#define BLOCK_INDEX_UNDEFINED -1
+
+/*
+ * | prev | next | size | free | ... size bytes of data ... |
+ */
+typedef struct block {
+        long int prev;  // 8 bytes
+        long int next;  // 8 bytes
+        unsigned long int size; // 8 bytes
+        unsigned int free; // 4 bytes
+        unsigned char *data; // 8 bytes
+} block_t;
+
+static void block_read(unsigned char *data, block_t *block) {
+    uint64_read_le(data + 0, (unsigned long int *)&block->prev);
+    uint64_read_le(data + 8, (unsigned long int *)&block->next);
+    uint64_read_le(data + 16, &block->size);
+    uint32_read_le(data + 24, &block->free);
+    block->data = data + BLOCK_METADATA_SIZE;
+}
+
+static void block_write(unsigned char *data, block_t *block) {
+    uint64_write_le(data + 0, block->prev);
+    uint64_write_le(data + 8, block->next);
+    uint64_write_le(data + 16, block->size);
+    uint32_write_le(data + 24, block->free);
+}
+
+// Initialize the allocator
+//
+// The start parameter is the start of the memory block to allocate from, and
+// the size parameter is the maximum size of the memory allocator.
+DSHDEF void ds_allocator_init(ds_allocator *allocator, unsigned char *start,
+                              unsigned long int size) {
+    allocator->start = start;
+    allocator->prev = NULL;
+    allocator->top = start;
+    allocator->size = size;
+}
+
+// Dump the allocator to stdout
+//
+// This function prints the contents of the allocator to stdout.
+DSHDEF void ds_allocator_dump(ds_allocator *allocator) {
+    block_t block = {0};
+    unsigned char *ptr = allocator->start;
+
+    fprintf(stdout, "%*s %*s %*s %*s %*s\n", 14, "", 14, "prev", 14, "next", 14,
+            "size", 14, "free");
+
+    while (ptr < allocator->top) {
+        block_read(ptr, &block);
+
+        unsigned char *prev = (block.prev == BLOCK_INDEX_UNDEFINED)
+                            ? NULL
+                            : allocator->start + block.prev;
+        unsigned char *next = (block.next == BLOCK_INDEX_UNDEFINED)
+                            ? NULL
+                            : allocator->start + block.next;
+
+        fprintf(stdout, "%*p %*p %*p %*lu %*u\n", 14, ptr, 14, prev, 14, next,
+                14, block.size, 14, block.free);
+
+        ptr += (block.size + BLOCK_METADATA_SIZE);
+    }
+}
+
+static int allocator_find_block(ds_allocator *allocator, unsigned long int size,
+                                block_t *block) {
+    if (allocator->prev == NULL) {
+        return 0;
+    }
+
+    block_t current = {0};
+    unsigned char *ptr = allocator->start;
+
+    while (ptr < allocator->top) {
+        block_read(ptr, &current);
+
+        if (current.free && current.size >= size + BLOCK_METADATA_SIZE * 2) {
+            unsigned long int old_size = current.size;
+            long int old_next = current.next;
+
+            block_t split = {0};
+            split.prev = (unsigned long int)(ptr - allocator->start);
+            split.next = old_next;
+            split.size = old_size - size - BLOCK_METADATA_SIZE;
+            split.free = 1;
+            split.data = ptr + BLOCK_METADATA_SIZE + size + BLOCK_METADATA_SIZE;
+
+            block_write(ptr + BLOCK_METADATA_SIZE + size, &split);
+
+            *block = current;
+            block->next =
+                (unsigned long int)(ptr - allocator->start) + BLOCK_METADATA_SIZE + size;
+            block->size = size;
+            block->free = 0;
+            block->data = ptr + BLOCK_METADATA_SIZE;
+
+            block_write(ptr, block);
+
+            block_t next = {0};
+            block_read(allocator->start + old_next, &next);
+
+            next.prev =
+                (unsigned long int)(ptr - allocator->start) + BLOCK_METADATA_SIZE + size;
+
+            block_write(allocator->start + old_next, &next);
+
+            return 1;
+        }
+
+        if (current.free && current.size >= size) {
+            *block = current;
+            block->free = 0;
+
+            block_write(ptr, block);
+
+            return 1;
+        }
+
+        ptr += (current.size + BLOCK_METADATA_SIZE);
+    }
+
+    return 0;
+}
+
+// Allocate memory from the allocator
+//
+// This function allocates memory from the allocator. If the allocator is unable
+// to allocate the memory, it returns NULL.
+DSHDEF void *ds_allocator_alloc(ds_allocator *allocator, unsigned long int size) {
+    block_t block = {0};
+    if (allocator_find_block(allocator, size, &block) != 0) {
+        return block.data;
+    }
+
+    if (allocator->top + size + BLOCK_METADATA_SIZE >
+        allocator->start + allocator->size) {
+        return NULL;
+    }
+
+    block.next = BLOCK_INDEX_UNDEFINED;
+    block.size = size;
+    block.free = 0;
+    block.data = allocator->top + BLOCK_METADATA_SIZE;
+
+    if (allocator->prev == NULL) {
+        block.prev = BLOCK_INDEX_UNDEFINED;
+    } else {
+        block.prev = (unsigned long int)(allocator->prev - allocator->start);
+
+        block_t prev = {0};
+        block_read(allocator->prev, &prev);
+        prev.next = (unsigned long int)(allocator->top - allocator->start);
+
+        block_write(allocator->prev, &prev);
+    }
+
+    block_write(allocator->top, &block);
+
+    allocator->prev = allocator->top;
+    allocator->top += size + BLOCK_METADATA_SIZE;
+
+    return block.data;
+}
+
+// Free memory from the allocator
+//
+// This function frees memory from the allocator. If the pointer is not within
+// the bounds of the allocator, it does nothing.
+DSHDEF void ds_allocator_free(ds_allocator *allocator, void *ptr) {
+    if ((unsigned char *)ptr > allocator->top || (unsigned char *)ptr < allocator->start) {
+        return;
+    }
+
+    block_t block = {0};
+    block_read(ptr - BLOCK_METADATA_SIZE, &block);
+    block.free = 1;
+
+    if (block.prev != BLOCK_INDEX_UNDEFINED) {
+        block_t prev = {0};
+        block_read(allocator->start + block.prev, &prev);
+
+        if (prev.free) {
+            prev.next = block.next;
+            prev.size += block.size + BLOCK_METADATA_SIZE;
+
+            unsigned char *mptr = allocator->start + block.prev;
+
+            block_t next = {0};
+            block_read(allocator->start + block.next, &next);
+
+            next.prev = (unsigned long int)((unsigned char *)mptr - allocator->start);
+
+            block_write(allocator->start + block.next, &next);
+            block_write(allocator->start + block.prev, &prev);
+
+            block = prev;
+            ptr = mptr + BLOCK_METADATA_SIZE;
+        }
+    }
+
+    if (block.next != BLOCK_INDEX_UNDEFINED) {
+        block_t next = {0};
+        block_read(allocator->start + block.next, &next);
+
+        if (next.free) {
+            block_t next_next = {0};
+            block_read(allocator->start + next.next, &next_next);
+
+            unsigned char *mptr = ptr - BLOCK_METADATA_SIZE;
+
+            next_next.prev = (unsigned long int)((unsigned char *)mptr - allocator->start);
+
+            block_write(allocator->start + next.next, &next_next);
+
+            block.next = next.next;
+            block.size += next.size + BLOCK_METADATA_SIZE;
+        }
+    }
+
+    block_write(ptr - BLOCK_METADATA_SIZE, &block);
+}
+
+#endif // DS_AL_IMPLEMENTATION
+
+#ifdef DS_DA_IMPLEMENTATION
+
+// Initialize the dynamic array with a custom allocator
+//
+// The item_size parameter is the size of each item in the array.
+DSHDEF void ds_dynamic_array_init_allocator(ds_dynamic_array *da,
+                                            unsigned int item_size,
+                                            struct ds_allocator *allocator) {
+    da->allocator = allocator;
+    da->items = NULL;
+    da->item_size = item_size;
+    da->count = 0;
+    da->capacity = 0;
+}
+
+// Initialize the dynamic array
+//
+// The item_size parameter is the size of each item in the array.
+DSHDEF void ds_dynamic_array_init(ds_dynamic_array *da,
+                                  unsigned int item_size) {
+    ds_dynamic_array_init_allocator(da, item_size, NULL);
+}
+
+// Append an item to the dynamic array
+//
+// Returns 0 if the item was appended successfully, 1 if the array could not be
+// reallocated.
+DSHDEF int ds_dynamic_array_append(ds_dynamic_array *da, const void *item) {
+    int result = 0;
+
+    if (da->count >= da->capacity) {
+        unsigned int new_capacity = da->capacity * 2;
+        if (new_capacity == 0) {
+            new_capacity = DS_DA_INIT_CAPACITY;
+        }
+
+        da->items =
+            DS_REALLOC(da->allocator, da->items, da->capacity * da->item_size,
+                       new_capacity * da->item_size);
+
+        if (da->items == NULL) {
+            DS_LOG_ERROR("Failed to reallocate dynamic array");
+            return_defer(1);
+        }
+
+        da->capacity = new_capacity;
+    }
+
+    DS_MEMCPY((char *)da->items + da->count * da->item_size, item,
+              da->item_size);
+    da->count++;
+
+defer:
+    return result;
+}
+
+// Pop an item from the dynamic array
+//
+// Returns 0 if the item was popped successfully, 1 if the array is empty.
+// If the item is NULL, then we just pop the item without returning it.
+DSHDEF int ds_dynamic_array_pop(ds_dynamic_array *da, const void **item) {
+    int result = 0;
+
+    if (da->count == 0) {
+        DS_LOG_ERROR("Dynamic array is empty");
+        *item = NULL;
+        return_defer(1);
+    }
+
+    if (item != NULL) {
+        *item = (char *)da->items + (da->count - 1) * da->item_size;
+    }
+    da->count--;
+
+defer:
+    return result;
+}
+
+// Append multiple items to the dynamic array
+//
+// Returns 0 if the items were appended successfully, 1 if the array could not
+// be reallocated.
+DSHDEF int ds_dynamic_array_append_many(ds_dynamic_array *da, void **new_items,
+                                        unsigned int new_items_count) {
+    int result = 0;
+
+    if (da->count + new_items_count > da->capacity) {
+        if (da->capacity == 0) {
+            da->capacity = DS_DA_INIT_CAPACITY;
+        }
+        while (da->count + new_items_count > da->capacity) {
+            da->capacity *= 2;
+        }
+
+        da->items =
+            DS_REALLOC(da->allocator, da->items, da->capacity * da->item_size,
+                       da->capacity * da->item_size);
+        if (da->items == NULL) {
+            DS_LOG_ERROR("Failed to reallocate dynamic array");
+            return_defer(1);
+        }
+    }
+
+    DS_MEMCPY((char *)da->items + da->count * da->item_size, new_items,
+              new_items_count * da->item_size);
+    da->count += new_items_count;
+
+defer:
+    return result;
+}
+
+// Get an item from the dynamic array
+//
+// Returns 0 if the item was retrieved successfully, 1 if the index is out of
+// bounds.
+DSHDEF int ds_dynamic_array_get(ds_dynamic_array *da, unsigned int index,
+                                void *item) {
+    int result = 0;
+
+    if (index >= da->count) {
+        DS_LOG_ERROR("Index out of bounds");
+        return_defer(1);
+    }
+
+    DS_MEMCPY(item, (char *)da->items + index * da->item_size, da->item_size);
+
+defer:
+    return result;
+}
+
+// Get a reference to an item from the dynamic array
+DSHDEF int ds_dynamic_array_get_ref(ds_dynamic_array *da, unsigned int index,
+                                    void **item) {
+    int result = 0;
+
+    if (index >= da->count) {
+        DS_LOG_ERROR("Index out of bounds %d %d", index, da->count);
+        return_defer(1);
+    }
+
+    *item = (char *)da->items + index * da->item_size;
+
+defer:
+    return result;
+}
+
+// Copy the dynamic array to another dynamic array
+//
+// Returns 0 if the array was copied successfully, 1 if the array could not be
+// allocated.
+DSHDEF int ds_dynamic_array_copy(ds_dynamic_array *da, ds_dynamic_array *copy) {
+    int result = 0;
+
+    copy->items = DS_MALLOC(da->allocator, da->capacity * da->item_size);
+    if (copy->items == NULL) {
+        DS_LOG_ERROR("Failed to allocate dynamic array items");
+        return_defer(1);
+    }
+
+    copy->item_size = da->item_size;
+    copy->count = da->count;
+    copy->capacity = da->capacity;
+
+    DS_MEMCPY(copy->items, da->items, da->count * da->item_size);
+
+defer:
+    return result;
+}
+
+// Sort the dynamic array
+//
+// This uses the qsort algorithm
+DSHDEF void ds_dynamic_array_sort(ds_dynamic_array *da,
+                                  int (*compare)(const void *, const void *)) {
+    qsort(da->items, da->count, da->item_size, compare);
+}
+
+// Reverse the dynamic array
+//
+// Returns 0 if the array was reversed successfully, 1 if the array could not be
+// allocated.
+DSHDEF int ds_dynamic_array_reverse(ds_dynamic_array *da) {
+    int result = 0;
+
+    for (unsigned int i = 0; i < da->count / 2; i++) {
+        unsigned int j = da->count - i - 1;
+
+        if (ds_dynamic_array_swap(da, i, j) != 0) {
+            DS_LOG_ERROR("Failed to swap items");
+            return_defer(1);
+        }
+    }
+
+defer:
+    return result;
+}
+
+// Swap two items in the dynamic array
+//
+// Returns 0 if the items were swapped successfully, 1 if the index is out of
+// bounds or if the temporary item could not be allocated.
+DSHDEF int ds_dynamic_array_swap(ds_dynamic_array *da, unsigned int index1,
+                                 unsigned int index2) {
+    int result = 0;
+
+    if (index1 >= da->count || index2 >= da->count) {
+        DS_LOG_ERROR("Index out of bounds");
+        return_defer(1);
+    }
+
+    if (index1 == index2) {
+        return_defer(0);
+    }
+
+    void *temp = DS_MALLOC(da->allocator, da->item_size);
+    if (temp == NULL) {
+        DS_LOG_ERROR("Failed to allocate temporary item");
+        return_defer(1);
+    }
+
+    void *index1_item = NULL;
+    if (ds_dynamic_array_get_ref(da, index1, &index1_item) != 0) {
+        DS_LOG_ERROR("Could not get item");
+        return_defer(1);
+    }
+
+    void *index2_item = NULL;
+    if (ds_dynamic_array_get_ref(da, index2, &index2_item) != 0) {
+        DS_LOG_ERROR("Could not get item");
+        return_defer(1);
+    }
+
+
+    DS_MEMCPY(temp, index1_item, da->item_size);
+    DS_MEMCPY(index1_item, index2_item, da->item_size);
+    DS_MEMCPY(index2_item, temp, da->item_size);
+
+    DS_FREE(da->allocator, temp);
+
+defer:
+    return result;
+}
+
+// Delete an item from the dynamic array
+//
+// Returns 0 in case of succsess. Returns 1 if the index is out of bounds
+DSHDEF int ds_dynamic_array_delete(ds_dynamic_array *da, unsigned int index) {
+    int result = 0;
+
+    if (index >= da->count) {
+        DS_LOG_ERROR("Index out of bounds");
+        return_defer(1);
+    }
+
+    unsigned int n = da->count - index - 1;
+
+    if (n > 0) {
+        void *dest = NULL;
+        if (ds_dynamic_array_get_ref(da, index, &dest) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            return_defer(1);
+        }
+
+        void *src = NULL;
+        if (ds_dynamic_array_get_ref(da, index + 1, &src) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            return_defer(1);
+        }
+
+        DS_MEMCPY(dest, src, n * da->item_size);
+    }
+
+    da->count -= 1;
+
+defer:
+    return result;
+}
+
+// Free the dynamic array
+DSHDEF void ds_dynamic_array_free(ds_dynamic_array *da) {
+    if (da->items != NULL) {
+        DS_FREE(da->allocator, da->items);
+    }
+    da->items = NULL;
+    da->count = 0;
+    da->capacity = 0;
+}
+
+#endif // DS_DA_IMPLEMENTATION
 
 #ifdef DS_PQ_IMPLEMENTATION
 
@@ -632,16 +1235,23 @@ DSHDEF void ds_priority_queue_init(ds_priority_queue *pq,
 //
 // Returns 0 if the item was inserted successfully.
 DSHDEF int ds_priority_queue_insert(ds_priority_queue *pq, void *item) {
+    int result = 0;
     ds_dynamic_array_append(&pq->items, item);
 
     int index = pq->items.count - 1;
     int parent = (index - 1) / 2;
 
     void *index_item = NULL;
-    ds_dynamic_array_get_ref(&pq->items, index, &index_item);
+    if (ds_dynamic_array_get_ref(&pq->items, index, &index_item) != 0) {
+        DS_LOG_ERROR("Could not get item");
+        return_defer(1);
+    }
 
     void *parent_item = NULL;
-    ds_dynamic_array_get_ref(&pq->items, parent, &parent_item);
+    if (ds_dynamic_array_get_ref(&pq->items, parent, &parent_item) != 0) {
+        DS_LOG_ERROR("Could not get item");
+        return_defer(1);
+    }
 
     while (index != 0 && pq->compare(index_item, parent_item) > 0) {
         ds_dynamic_array_swap(&pq->items, index, parent);
@@ -649,11 +1259,18 @@ DSHDEF int ds_priority_queue_insert(ds_priority_queue *pq, void *item) {
         index = parent;
         parent = (index - 1) / 2;
 
-        ds_dynamic_array_get_ref(&pq->items, index, &index_item);
-        ds_dynamic_array_get_ref(&pq->items, parent, &parent_item);
+        if (ds_dynamic_array_get_ref(&pq->items, index, &index_item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            return_defer(1);
+        }
+        if (ds_dynamic_array_get_ref(&pq->items, parent, &parent_item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            return_defer(1);
+        }
     }
 
-    return 0;
+defer:
+    return result;
 }
 
 // Pull the item with the highest priority from the priority queue
@@ -668,7 +1285,9 @@ DSHDEF int ds_priority_queue_pull(ds_priority_queue *pq, void *item) {
         return_defer(1);
     }
 
-    ds_dynamic_array_get(&pq->items, 0, item);
+    if (ds_dynamic_array_get(&pq->items, 0, item) != 0) {
+        return_defer(1);
+    }
     ds_dynamic_array_swap(&pq->items, 0, pq->items.count - 1);
 
     unsigned int index = 0;
@@ -678,27 +1297,42 @@ DSHDEF int ds_priority_queue_pull(ds_priority_queue *pq, void *item) {
         index = swap;
 
         unsigned int left = 2 * index + 1;
-        void *left_item = NULL;
-        ds_dynamic_array_get_ref(&pq->items, swap, &swap_item);
-        ds_dynamic_array_get_ref(&pq->items, left, &left_item);
-        if (left < pq->items.count - 1 &&
-            pq->compare(left_item, swap_item) > 0) {
-            swap = left;
+        if (left < pq->items.count - 1) {
+            void *left_item = NULL;
+            if (ds_dynamic_array_get_ref(&pq->items, swap, &swap_item) != 0) {
+                DS_LOG_ERROR("Could not get item");
+                return_defer(1);
+            }
+            if (ds_dynamic_array_get_ref(&pq->items, left, &left_item) != 0) {
+                DS_LOG_ERROR("Could not get item");
+                return_defer(1);
+            }
+            if (pq->compare(left_item, swap_item) > 0) {
+                swap = left;
+            }
         }
 
         unsigned int right = 2 * index + 2;
-        void *right_item = NULL;
-        ds_dynamic_array_get_ref(&pq->items, swap, &swap_item);
-        ds_dynamic_array_get_ref(&pq->items, right, &right_item);
-        if (right < pq->items.count - 1 &&
-            pq->compare(right_item, swap_item) > 0) {
-            swap = right;
+        if (right < pq->items.count - 1) {
+            void *right_item = NULL;
+            if (ds_dynamic_array_get_ref(&pq->items, swap, &swap_item) != 0) {
+                DS_LOG_ERROR("Could not get item");
+                return_defer(1);
+            }
+            if (ds_dynamic_array_get_ref(&pq->items, right, &right_item) != 0) {
+                DS_LOG_ERROR("Could not get item");
+                return_defer(1);
+            }
+            if (pq->compare(right_item, swap_item) > 0) {
+                swap = right;
+            }
         }
 
         ds_dynamic_array_swap(&pq->items, index, swap);
     } while (swap != index);
 
     pq->items.count--;
+
 defer:
     return result;
 }
@@ -715,14 +1349,16 @@ DSHDEF int ds_priority_queue_peek(ds_priority_queue *pq, void *item) {
         return_defer(1);
     }
 
-    ds_dynamic_array_get(&pq->items, 0, item);
+    if (ds_dynamic_array_get(&pq->items, 0, item) != 0) {
+        return_defer(1);
+    }
 
 defer:
     return result;
 }
 
 // Check if the priority queue is empty
-DSHDEF int ds_priority_queue_empty(ds_priority_queue *pq) {
+DSHDEF bool ds_priority_queue_empty(ds_priority_queue *pq) {
     return pq->items.count == 0;
 }
 
@@ -996,14 +1632,14 @@ defer:
 // Check if the string slice starts with a specific string given as a char*
 //
 // Returns 1 in case the string slice starts with str. Returns 0 otherwise
-DSHDEF int ds_string_slice_starts_with(ds_string_slice *ss, ds_string_slice *prefix) {
+DSHDEF bool ds_string_slice_starts_with(ds_string_slice *ss, ds_string_slice *prefix) {
     return DS_MEMCMP(ss->str, prefix->str, prefix->len) == 0;
 }
 
 // Check if the string slice starts with a char that matches a predicate function
 //
 // Returns 1 if the string slice starts with a predicate. Returns 0 otherwise.
-DSHDEF int ds_string_slice_starts_with_pred(ds_string_slice *ss, int (*predicate)(char)) {
+DSHDEF bool ds_string_slice_starts_with_pred(ds_string_slice *ss, bool (*predicate)(char)) {
     return predicate(*ss->str);
 }
 
@@ -1015,8 +1651,9 @@ DSHDEF int ds_string_slice_step(ds_string_slice *ss, int count) {
     return 0;
 }
 
-DSHDEF int ds_string_slice_empty(ds_string_slice *ss) {
-    return *ss->str == '\0';
+// Check if the string slice is empty
+DSHDEF bool ds_string_slice_empty(ds_string_slice *ss) {
+    return ss->len == 0;
 }
 
 // Free the string slice
@@ -1026,276 +1663,6 @@ DSHDEF void ds_string_slice_free(ds_string_slice *ss) {
 }
 
 #endif // DS_SS_IMPLEMENTATION
-
-#ifdef DS_DA_IMPLEMENTATION
-
-// Initialize the dynamic array with a custom allocator
-//
-// The item_size parameter is the size of each item in the array.
-DSHDEF void ds_dynamic_array_init_allocator(ds_dynamic_array *da,
-                                            unsigned int item_size,
-                                            struct ds_allocator *allocator) {
-    da->allocator = allocator;
-    da->items = NULL;
-    da->item_size = item_size;
-    da->count = 0;
-    da->capacity = 0;
-}
-
-// Initialize the dynamic array
-//
-// The item_size parameter is the size of each item in the array.
-DSHDEF void ds_dynamic_array_init(ds_dynamic_array *da,
-                                  unsigned int item_size) {
-    ds_dynamic_array_init_allocator(da, item_size, NULL);
-}
-
-// Append an item to the dynamic array
-//
-// Returns 0 if the item was appended successfully, 1 if the array could not be
-// reallocated.
-DSHDEF int ds_dynamic_array_append(ds_dynamic_array *da, const void *item) {
-    int result = 0;
-
-    if (da->count >= da->capacity) {
-        unsigned int new_capacity = da->capacity * 2;
-        if (new_capacity == 0) {
-            new_capacity = DS_DA_INIT_CAPACITY;
-        }
-
-        da->items =
-            DS_REALLOC(da->allocator, da->items, da->capacity * da->item_size,
-                       new_capacity * da->item_size);
-
-        if (da->items == NULL) {
-            DS_LOG_ERROR("Failed to reallocate dynamic array");
-            return_defer(1);
-        }
-
-        da->capacity = new_capacity;
-    }
-
-    DS_MEMCPY((char *)da->items + da->count * da->item_size, item,
-              da->item_size);
-    da->count++;
-
-defer:
-    return result;
-}
-
-// Pop an item from the dynamic array
-//
-// Returns 0 if the item was popped successfully, 1 if the array is empty.
-// If the item is NULL, then we just pop the item without returning it.
-DSHDEF int ds_dynamic_array_pop(ds_dynamic_array *da, const void **item) {
-    int result = 0;
-
-    if (da->count == 0) {
-        DS_LOG_ERROR("Dynamic array is empty");
-        *item = NULL;
-        return_defer(1);
-    }
-
-    if (item != NULL) {
-        *item = (char *)da->items + (da->count - 1) * da->item_size;
-    }
-    da->count--;
-
-defer:
-    return result;
-}
-
-// Append multiple items to the dynamic array
-//
-// Returns 0 if the items were appended successfully, 1 if the array could not
-// be reallocated.
-DSHDEF int ds_dynamic_array_append_many(ds_dynamic_array *da, void **new_items,
-                                        unsigned int new_items_count) {
-    int result = 0;
-
-    if (da->count + new_items_count > da->capacity) {
-        if (da->capacity == 0) {
-            da->capacity = DS_DA_INIT_CAPACITY;
-        }
-        while (da->count + new_items_count > da->capacity) {
-            da->capacity *= 2;
-        }
-
-        da->items =
-            DS_REALLOC(da->allocator, da->items, da->capacity * da->item_size,
-                       da->capacity * da->item_size);
-        if (da->items == NULL) {
-            DS_LOG_ERROR("Failed to reallocate dynamic array");
-            return_defer(1);
-        }
-    }
-
-    DS_MEMCPY((char *)da->items + da->count * da->item_size, new_items,
-              new_items_count * da->item_size);
-    da->count += new_items_count;
-
-defer:
-    return result;
-}
-
-// Get an item from the dynamic array
-//
-// Returns 0 if the item was retrieved successfully, 1 if the index is out of
-// bounds.
-DSHDEF int ds_dynamic_array_get(ds_dynamic_array *da, unsigned int index,
-                                void *item) {
-    int result = 0;
-
-    if (index >= da->count) {
-        DS_LOG_ERROR("Index out of bounds");
-        return_defer(1);
-    }
-
-    DS_MEMCPY(item, (char *)da->items + index * da->item_size, da->item_size);
-
-defer:
-    return result;
-}
-
-// Get a reference to an item from the dynamic array
-DSHDEF void ds_dynamic_array_get_ref(ds_dynamic_array *da, unsigned int index,
-                                     void **item) {
-    *item = (char *)da->items + index * da->item_size;
-}
-
-// Copy the dynamic array to another dynamic array
-//
-// Returns 0 if the array was copied successfully, 1 if the array could not be
-// allocated.
-DSHDEF int ds_dynamic_array_copy(ds_dynamic_array *da, ds_dynamic_array *copy) {
-    int result = 0;
-
-    copy->items = DS_MALLOC(da->allocator, da->capacity * da->item_size);
-    if (copy->items == NULL) {
-        DS_LOG_ERROR("Failed to allocate dynamic array items");
-        return_defer(1);
-    }
-
-    copy->item_size = da->item_size;
-    copy->count = da->count;
-    copy->capacity = da->capacity;
-
-    DS_MEMCPY(copy->items, da->items, da->count * da->item_size);
-
-defer:
-    return result;
-}
-
-// Sort the dynamic array
-//
-// This uses the qsort algorithm
-DSHDEF void ds_dynamic_array_sort(ds_dynamic_array *da,
-                                  int (*compare)(const void *, const void *)) {
-    qsort(da->items, da->count, da->item_size, compare);
-}
-
-// Reverse the dynamic array
-//
-// Returns 0 if the array was reversed successfully, 1 if the array could not be
-// allocated.
-DSHDEF int ds_dynamic_array_reverse(ds_dynamic_array *da) {
-    int result = 0;
-
-    for (unsigned int i = 0; i < da->count / 2; i++) {
-        unsigned int j = da->count - i - 1;
-
-        void *temp = DS_MALLOC(da->allocator, da->item_size);
-        if (temp == NULL) {
-            DS_LOG_ERROR("Failed to allocate temporary item");
-            return_defer(1);
-        }
-
-        DS_MEMCPY(temp, (char *)da->items + i * da->item_size, da->item_size);
-        DS_MEMCPY((char *)da->items + i * da->item_size,
-                  (char *)da->items + j * da->item_size, da->item_size);
-        DS_MEMCPY((char *)da->items + j * da->item_size, temp, da->item_size);
-        DS_FREE(da->allocator, temp);
-    }
-
-defer:
-    return result;
-}
-
-// Swap two items in the dynamic array
-//
-// Returns 0 if the items were swapped successfully, 1 if the index is out of
-// bounds or if the temporary item could not be allocated.
-DSHDEF int ds_dynamic_array_swap(ds_dynamic_array *da, unsigned int index1,
-                                 unsigned int index2) {
-    int result = 0;
-
-    if (index1 >= da->count || index2 >= da->count) {
-        DS_LOG_ERROR("Index out of bounds");
-        return_defer(1);
-    }
-
-    void *temp = DS_MALLOC(da->allocator, da->item_size);
-    if (temp == NULL) {
-        DS_LOG_ERROR("Failed to allocate temporary item");
-        return_defer(1);
-    }
-
-    void *index1_item = NULL;
-    ds_dynamic_array_get_ref(da, index1, &index1_item);
-
-    void *index2_item = NULL;
-    ds_dynamic_array_get_ref(da, index2, &index2_item);
-
-    DS_MEMCPY(temp, index1_item, da->item_size);
-    DS_MEMCPY(index1_item, index2_item, da->item_size);
-    DS_MEMCPY(index2_item, temp, da->item_size);
-
-    DS_FREE(da->allocator, temp);
-
-defer:
-    return result;
-}
-
-// Delete an item from the dynamic array
-//
-// Returns 0 in case of succsess. Returns 1 if the index is out of bounds
-DSHDEF int ds_dynamic_array_delete(ds_dynamic_array *da, unsigned int index) {
-    int result = 0;
-
-    if (index >= da->count) {
-        DS_LOG_ERROR("Index out of bounds");
-        return_defer(1);
-    }
-
-    unsigned int n = da->count - index - 1;
-
-    if (n > 0) {
-        void *dest = NULL;
-        ds_dynamic_array_get_ref(da, index, &dest);
-
-        void *src = NULL;
-        ds_dynamic_array_get_ref(da, index + 1, &src);
-
-        DS_MEMCPY(dest, src, n * da->item_size);
-    }
-
-    da->count -= 1;
-
-defer:
-    return result;
-}
-
-// Free the dynamic array
-DSHDEF void ds_dynamic_array_free(ds_dynamic_array *da) {
-    if (da->items != NULL) {
-        DS_FREE(da->allocator, da->items);
-    }
-    da->items = NULL;
-    da->count = 0;
-    da->capacity = 0;
-}
-
-#endif // DS_DA_IMPLEMENTATION
 
 #ifdef DS_LL_IMPLEMENTATION
 
@@ -1477,7 +1844,7 @@ defer:
 // Check if the linked list is empty
 //
 // Returns 1 if the list is empty, 0 if the list is not empty.
-DSHDEF int ds_linked_list_empty(ds_linked_list *ll) { return ll->head == NULL; }
+DSHDEF bool ds_linked_list_empty(ds_linked_list *ll) { return ll->head == NULL; }
 
 DSHDEF void ds_linked_list_free(ds_linked_list *ll) {
     ds_linked_list_node *node = ll->head;
@@ -1566,7 +1933,9 @@ DSHDEF int ds_hashmap_get(ds_hashmap *map, ds_hashmap_kv *kv) {
 
     for (int i = 0; bucket->count; i++) {
         ds_hashmap_kv tmp = {0};
-        ds_dynamic_array_get(bucket, i, &tmp);
+        if (ds_dynamic_array_get(bucket, i, &tmp) != 0) {
+            return_defer(1);
+        }
 
         if (map->compare(kv->key, tmp.key) == 0) {
             kv->value = tmp.value;
@@ -1596,7 +1965,9 @@ DSHDEF int ds_hashmap_delete(ds_hashmap *map, const void *key) {
 
     for (int i = 0; bucket->count; i++) {
         ds_hashmap_kv tmp = {0};
-        ds_dynamic_array_get(bucket, i, &tmp);
+        if (ds_dynamic_array_get(bucket, i, &tmp) != 0) {
+            return_defer(1);
+        }
 
         if (map->compare(key, tmp.key) == 0) {
             ds_dynamic_array_delete(bucket, i);
@@ -1614,6 +1985,19 @@ defer:
     return result;
 }
 
+// Get the number of key value pairs in the hashmap.
+//
+// Returns the number of items.
+DSHDEF unsigned int ds_hashmap_count(ds_hashmap *map) {
+    unsigned int count = 0;
+
+    for (unsigned int i = 0; i < map->capacity; i++) {
+        count += map->buckets[i].count;
+    }
+
+    return count;
+}
+
 // Free the hashmap (this does not free the values or the keys)
 DSHDEF void ds_hashmap_free(ds_hashmap *map) {
     for (unsigned int i = 0; i < map->capacity; i++) {
@@ -1626,266 +2010,6 @@ DSHDEF void ds_hashmap_free(ds_hashmap *map) {
 }
 
 #endif // DS_HM_IMPLEMENTATION
-
-#ifdef DS_AL_IMPLEMENTATION
-
-static void uint64_read_le(unsigned char *data, unsigned long int *value) {
-    *value = ((unsigned long int)data[0] << 0) | ((unsigned long int)data[1] << 8) |
-             ((unsigned long int)data[2] << 16) | ((unsigned long int)data[3] << 24) |
-             ((unsigned long int)data[4] << 32) | ((unsigned long int)data[5] << 40) |
-             ((unsigned long int)data[6] << 48) | ((unsigned long int)data[7] << 56);
-}
-
-static void uint64_write_le(unsigned char *data, unsigned long int value) {
-    data[0] = (value >> 0) & 0xff;
-    data[1] = (value >> 8) & 0xff;
-    data[2] = (value >> 16) & 0xff;
-    data[3] = (value >> 24) & 0xff;
-    data[4] = (value >> 32) & 0xff;
-    data[5] = (value >> 40) & 0xff;
-    data[6] = (value >> 48) & 0xff;
-    data[7] = (value >> 56) & 0xff;
-}
-
-static void uint32_read_le(unsigned char *data, unsigned int *value) {
-    *value = ((unsigned int)data[0] << 0) | ((unsigned int)data[1] << 8) |
-             ((unsigned int)data[2] << 16) | ((unsigned int)data[3] << 24);
-}
-
-static void uint32_write_le(unsigned char *data, unsigned int value) {
-    data[0] = (value >> 0) & 0xff;
-    data[1] = (value >> 8) & 0xff;
-    data[2] = (value >> 16) & 0xff;
-    data[3] = (value >> 24) & 0xff;
-}
-
-#define BLOCK_METADATA_SIZE 28
-#define BLOCK_INDEX_UNDEFINED -1
-
-/*
- * | prev | next | size | free | ... size bytes of data ... |
- */
-typedef struct block {
-        long int prev;  // 8 bytes
-        long int next;  // 8 bytes
-        unsigned long int size; // 8 bytes
-        unsigned int free; // 4 bytes
-        unsigned char *data; // 8 bytes
-} block_t;
-
-static void block_read(unsigned char *data, block_t *block) {
-    uint64_read_le(data + 0, (unsigned long int *)&block->prev);
-    uint64_read_le(data + 8, (unsigned long int *)&block->next);
-    uint64_read_le(data + 16, &block->size);
-    uint32_read_le(data + 24, &block->free);
-    block->data = data + BLOCK_METADATA_SIZE;
-}
-
-static void block_write(unsigned char *data, block_t *block) {
-    uint64_write_le(data + 0, block->prev);
-    uint64_write_le(data + 8, block->next);
-    uint64_write_le(data + 16, block->size);
-    uint32_write_le(data + 24, block->free);
-}
-
-// Initialize the allocator
-//
-// The start parameter is the start of the memory block to allocate from, and
-// the size parameter is the maximum size of the memory allocator.
-DSHDEF void ds_allocator_init(ds_allocator *allocator, unsigned char *start,
-                              unsigned long int size) {
-    allocator->start = start;
-    allocator->prev = NULL;
-    allocator->top = start;
-    allocator->size = size;
-}
-
-// Dump the allocator to stdout
-//
-// This function prints the contents of the allocator to stdout.
-DSHDEF void ds_allocator_dump(ds_allocator *allocator) {
-    block_t block = {0};
-    unsigned char *ptr = allocator->start;
-
-    fprintf(stdout, "%*s %*s %*s %*s %*s\n", 14, "", 14, "prev", 14, "next", 14,
-            "size", 14, "free");
-
-    while (ptr < allocator->top) {
-        block_read(ptr, &block);
-
-        unsigned char *prev = (block.prev == BLOCK_INDEX_UNDEFINED)
-                            ? NULL
-                            : allocator->start + block.prev;
-        unsigned char *next = (block.next == BLOCK_INDEX_UNDEFINED)
-                            ? NULL
-                            : allocator->start + block.next;
-
-        fprintf(stdout, "%*p %*p %*p %*lu %*u\n", 14, ptr, 14, prev, 14, next,
-                14, block.size, 14, block.free);
-
-        ptr += (block.size + BLOCK_METADATA_SIZE);
-    }
-}
-
-static int allocator_find_block(ds_allocator *allocator, unsigned long int size,
-                                block_t *block) {
-    if (allocator->prev == NULL) {
-        return 0;
-    }
-
-    block_t current = {0};
-    unsigned char *ptr = allocator->start;
-
-    while (ptr < allocator->top) {
-        block_read(ptr, &current);
-
-        if (current.free && current.size >= size + BLOCK_METADATA_SIZE * 2) {
-            unsigned long int old_size = current.size;
-            long int old_next = current.next;
-
-            block_t split = {0};
-            split.prev = (unsigned long int)(ptr - allocator->start);
-            split.next = old_next;
-            split.size = old_size - size - BLOCK_METADATA_SIZE;
-            split.free = 1;
-            split.data = ptr + BLOCK_METADATA_SIZE + size + BLOCK_METADATA_SIZE;
-
-            block_write(ptr + BLOCK_METADATA_SIZE + size, &split);
-
-            *block = current;
-            block->next =
-                (unsigned long int)(ptr - allocator->start) + BLOCK_METADATA_SIZE + size;
-            block->size = size;
-            block->free = 0;
-            block->data = ptr + BLOCK_METADATA_SIZE;
-
-            block_write(ptr, block);
-
-            block_t next = {0};
-            block_read(allocator->start + old_next, &next);
-
-            next.prev =
-                (unsigned long int)(ptr - allocator->start) + BLOCK_METADATA_SIZE + size;
-
-            block_write(allocator->start + old_next, &next);
-
-            return 1;
-        }
-
-        if (current.free && current.size >= size) {
-            *block = current;
-            block->free = 0;
-
-            block_write(ptr, block);
-
-            return 1;
-        }
-
-        ptr += (current.size + BLOCK_METADATA_SIZE);
-    }
-
-    return 0;
-}
-
-// Allocate memory from the allocator
-//
-// This function allocates memory from the allocator. If the allocator is unable
-// to allocate the memory, it returns NULL.
-DSHDEF void *ds_allocator_alloc(ds_allocator *allocator, unsigned long int size) {
-    block_t block = {0};
-    if (allocator_find_block(allocator, size, &block) != 0) {
-        return block.data;
-    }
-
-    if (allocator->top + size + BLOCK_METADATA_SIZE >
-        allocator->start + allocator->size) {
-        return NULL;
-    }
-
-    block.next = BLOCK_INDEX_UNDEFINED;
-    block.size = size;
-    block.free = 0;
-    block.data = allocator->top + BLOCK_METADATA_SIZE;
-
-    if (allocator->prev == NULL) {
-        block.prev = BLOCK_INDEX_UNDEFINED;
-    } else {
-        block.prev = (unsigned long int)(allocator->prev - allocator->start);
-
-        block_t prev = {0};
-        block_read(allocator->prev, &prev);
-        prev.next = (unsigned long int)(allocator->top - allocator->start);
-
-        block_write(allocator->prev, &prev);
-    }
-
-    block_write(allocator->top, &block);
-
-    allocator->prev = allocator->top;
-    allocator->top += size + BLOCK_METADATA_SIZE;
-
-    return block.data;
-}
-
-// Free memory from the allocator
-//
-// This function frees memory from the allocator. If the pointer is not within
-// the bounds of the allocator, it does nothing.
-DSHDEF void ds_allocator_free(ds_allocator *allocator, void *ptr) {
-    if ((unsigned char *)ptr > allocator->top || (unsigned char *)ptr < allocator->start) {
-        return;
-    }
-
-    block_t block = {0};
-    block_read(ptr - BLOCK_METADATA_SIZE, &block);
-    block.free = 1;
-
-    if (block.prev != BLOCK_INDEX_UNDEFINED) {
-        block_t prev = {0};
-        block_read(allocator->start + block.prev, &prev);
-
-        if (prev.free) {
-            prev.next = block.next;
-            prev.size += block.size + BLOCK_METADATA_SIZE;
-
-            unsigned char *mptr = allocator->start + block.prev;
-
-            block_t next = {0};
-            block_read(allocator->start + block.next, &next);
-
-            next.prev = (unsigned long int)((unsigned char *)mptr - allocator->start);
-
-            block_write(allocator->start + block.next, &next);
-            block_write(allocator->start + block.prev, &prev);
-
-            block = prev;
-            ptr = mptr + BLOCK_METADATA_SIZE;
-        }
-    }
-
-    if (block.next != BLOCK_INDEX_UNDEFINED) {
-        block_t next = {0};
-        block_read(allocator->start + block.next, &next);
-
-        if (next.free) {
-            block_t next_next = {0};
-            block_read(allocator->start + next.next, &next_next);
-
-            unsigned char *mptr = ptr - BLOCK_METADATA_SIZE;
-
-            next_next.prev = (unsigned long int)((unsigned char *)mptr - allocator->start);
-
-            block_write(allocator->start + next.next, &next_next);
-
-            block.next = next.next;
-            block.size += next.size + BLOCK_METADATA_SIZE;
-        }
-    }
-
-    block_write(ptr - BLOCK_METADATA_SIZE, &block);
-}
-
-#endif // DS_AL_IMPLEMENTATION
 
 #ifdef DS_AP_IMPLEMENTATION
 
@@ -1963,7 +2087,10 @@ static int argparse_validate_parser(ds_argparse_parser *parser) {
 
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            return_defer(1);
+        }
 
         ds_argparse_options options = item->options;
 
@@ -2005,6 +2132,7 @@ static int argparse_validate_parser(ds_argparse_parser *parser) {
         }
     }
 
+defer:
     return result;
 }
 
@@ -2013,7 +2141,10 @@ static int argparse_post_validate_parser(ds_argparse_parser *parser) {
 
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            return_defer(1);
+        }
 
         ds_argparse_options options = item->options;
 
@@ -2052,6 +2183,7 @@ static int argparse_post_validate_parser(ds_argparse_parser *parser) {
         }
     }
 
+defer:
     return result;
 }
 
@@ -2066,7 +2198,10 @@ static ds_argument *argparse_get_option_arg(ds_argparse_parser *parser,
 
     for (unsigned int j = 0; j < parser->arguments.count; j++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, j, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, j, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         if ((name[1] == '-' && item->options.long_name != NULL &&
              strcmp(name + 2, item->options.long_name) == 0) ||
@@ -2095,7 +2230,10 @@ static ds_argument *argparse_get_positional_arg(ds_argparse_parser *parser,
     ds_argument *arg = NULL;
     for (unsigned int j = 0; j < parser->arguments.count; j++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, j, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, j, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         if (item->options.type == ARGUMENT_TYPE_POSITIONAL &&
             item->value == NULL) {
@@ -2123,7 +2261,7 @@ static ds_argument *argparse_get_positional_arg(ds_argparse_parser *parser,
 // - argv: command line arguments
 //
 // Returns 0 if the parsing was successful, 1 otherwise.
-int ds_argparse_parse(ds_argparse_parser *parser, int argc, char *argv[]) {
+DSHDEF int ds_argparse_parse(ds_argparse_parser *parser, int argc, char *argv[]) {
     int result = 0;
 
     if (argparse_validate_parser(parser) != 0) {
@@ -2236,10 +2374,13 @@ defer:
 //
 // Returns:
 // - value of the argument
-char *ds_argparse_get_value(ds_argparse_parser *parser, char *long_name) {
+DSHDEF char *ds_argparse_get_value(ds_argparse_parser *parser, char *long_name) {
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         if (item->options.long_name != NULL &&
             strcmp(long_name, item->options.long_name) == 0) {
@@ -2264,10 +2405,13 @@ char *ds_argparse_get_value(ds_argparse_parser *parser, char *long_name) {
 //
 // Returns:
 // - value of the flag argument
-unsigned int ds_argparse_get_flag(ds_argparse_parser *parser, char *long_name) {
+DSHDEF unsigned int ds_argparse_get_flag(ds_argparse_parser *parser, char *long_name) {
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         if (item->options.long_name != NULL &&
             strcmp(long_name, item->options.long_name) == 0) {
@@ -2285,7 +2429,10 @@ DSHDEF int ds_argparse_get_values(struct ds_argparse_parser *parser,
                                   char *long_name, ds_dynamic_array *values) {
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         if (item->options.long_name != NULL &&
             strcmp(long_name, item->options.long_name) == 0) {
@@ -2307,12 +2454,15 @@ DSHDEF int ds_argparse_get_values(struct ds_argparse_parser *parser,
 //
 // Arguments:
 // - parser: argument parser
-void ds_argparse_print_help(ds_argparse_parser *parser) {
+DSHDEF void ds_argparse_print_help(ds_argparse_parser *parser) {
     fprintf(stdout, "usage: %s [options]", parser->name);
 
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         ds_argparse_options options = item->options;
 
@@ -2323,7 +2473,10 @@ void ds_argparse_print_help(ds_argparse_parser *parser) {
 
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         ds_argparse_options options = item->options;
 
@@ -2338,7 +2491,10 @@ void ds_argparse_print_help(ds_argparse_parser *parser) {
 
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         ds_argparse_options options = item->options;
 
@@ -2355,7 +2511,10 @@ void ds_argparse_print_help(ds_argparse_parser *parser) {
 
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         ds_argparse_options options = item->options;
 
@@ -2375,7 +2534,10 @@ void ds_argparse_print_help(ds_argparse_parser *parser) {
 
     for (unsigned int i = 0; i < parser->arguments.count; i++) {
         ds_argument *item = NULL;
-        ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item);
+        if (ds_dynamic_array_get_ref(&parser->arguments, i, (void **)&item) != 0) {
+            DS_LOG_ERROR("Could not get item");
+            break;
+        }
 
         switch (item->options.type) {
         case ARGUMENT_TYPE_POSITIONAL: {
@@ -2426,7 +2588,7 @@ void ds_argparse_print_help(ds_argparse_parser *parser) {
 //
 // Arguments:
 // - parser: argument parser
-void ds_argparse_print_version(ds_argparse_parser *parser) {
+DSHDEF void ds_argparse_print_version(ds_argparse_parser *parser) {
     fprintf(stdout, "%s %s\n", parser->name, parser->version);
 }
 
@@ -2436,7 +2598,7 @@ void ds_argparse_print_version(ds_argparse_parser *parser) {
 //
 // Arguments:
 // - parser: argument parser
-void ds_argparse_parser_free(ds_argparse_parser *parser) {
+DSHDEF void ds_argparse_parser_free(ds_argparse_parser *parser) {
     ds_dynamic_array_free(&parser->arguments);
 }
 
@@ -2446,122 +2608,16 @@ void ds_argparse_parser_free(ds_argparse_parser *parser) {
 
 // Read a file
 //
-// Reads the contents of a file into a buffer.
-//
-// Arguments:
-// - filename: name of the file to read
-// - buffer: pointer to the buffer to store the contents of the file
-//
-// Returns:
-// - the number of bytes read
-DSHDEF int ds_io_read_file(const char *filename, char **buffer) {
-    int result = 0;
-    FILE *file = NULL;
-    ds_string_builder sb;
-    ds_string_builder_init(&sb);
-
-    if (filename != NULL) {
-        file = fopen(filename, "r");
-        if (file == NULL) {
-            DS_LOG_ERROR("Failed to open file: %s", filename);
-            return_defer(-1);
-        }
-    } else {
-        file = stdin;
-    }
-
-    char line[LINE_MAX] = {0};
-    while (fgets(line, sizeof(line), file) != NULL) {
-        unsigned int len = 0;
-        for (len = 0; len < LINE_MAX; len++) {
-            if (line[len] == '\n' || line[len] == EOF) {
-                break;
-            }
-        }
-
-        if (len == LINE_MAX) {
-            len = strlen(line);
-        } else {
-            len += 1;
-            line[len] = '\0';
-        }
-
-        if (len == LINE_MAX) {
-            DS_LOG_ERROR("Line too long");
-            return_defer(-1);
-        }
-
-        if (ds_string_builder_appendn(&sb, line, len) != 0) {
-            DS_LOG_ERROR("Failed to append line to string builder");
-            return_defer(-1);
-        }
-
-        memset(line, 0, sizeof(line));
-    }
-
-    if (ds_string_builder_build(&sb, buffer) != 0) {
-        DS_LOG_ERROR("Failed to build string from string builder");
-        return_defer(-1);
-    }
-
-    result = sb.items.count;
-
-defer:
-    if (filename != NULL && file != NULL)
-        fclose(file);
-    ds_string_builder_free(&sb);
-    return result;
-}
-
-// Write a file
-//
-// Writes the contents of a buffer to a file.
-//
-// Arguments:
-// - filename: name of the file to write
-// - buffer: pointer to the buffer to write to the file
-// - mode: mode to open the file in
-//
-// Returns:
-// - 0 if the write was successful, -1 otherwise
-DSHDEF int ds_io_write_file(const char *filename, const char *buffer, const char *mode) {
-    int result = 0;
-    FILE *file = NULL;
-
-    if (filename != NULL) {
-        file = fopen(filename, mode);
-        if (file == NULL) {
-            DS_LOG_ERROR("Failed to open file: %s", filename);
-            return_defer(-1);
-        }
-    } else {
-        file = stdout;
-    }
-
-    if (fputs(buffer, file) == EOF) {
-        DS_LOG_ERROR("Failed to write to file");
-        return_defer(-1);
-    }
-
-    result = 0;
-
-defer:
-    if (filename != NULL && file != NULL)
-        fclose(file);
-    return result;
-}
-
-// Read a binary file
-//
 // Reads the contents of a binary file into a buffer.
 //
 // Arguments:
 // - filename: name of the file to read
 // - buffer: pointer to the buffer to store the contents of the file
+// - mode: the mode to read in
 //
 // Returns:
 // - the number of bytes read
-DSHDEF int ds_io_read_binary(const char *filename, char **buffer) {
+DSHDEF int ds_io_read(const char *filename, char **buffer, const char *mode) {
     int result = 0;
     unsigned long line_size;
     FILE *file = NULL;
@@ -2569,7 +2625,7 @@ DSHDEF int ds_io_read_binary(const char *filename, char **buffer) {
     ds_string_builder_init(&sb);
 
     if (filename != NULL) {
-        file = fopen(filename, "rb");
+        file = fopen(filename, mode);
         if (file == NULL) {
             DS_LOG_ERROR("Failed to open file: %s", filename);
             return_defer(-1);
@@ -2604,7 +2660,7 @@ defer:
     return result;
 }
 
-// Write a binary file
+// Write a file
 //
 // Writes the contents of a buffer into a binary file.
 //
@@ -2612,16 +2668,17 @@ defer:
 // - filename: name of the file to read
 // - buffer: pointer to the buffer to use on write
 // - buffer_len: the size of the buffer
+// - mode: the mode to write in
 //
 // Returns:
 // - the number of bytes written
-DSHDEF int ds_io_write_binary(const char *filename, char *buffer, unsigned int buffer_len) {
+DSHDEF int ds_io_write(const char *filename, char *buffer, unsigned int buffer_len, const char *mode) {
     int result = 0;
     unsigned long buffer_size;
     FILE *file = NULL;
 
     if (filename != NULL) {
-        file = fopen(filename, "wb");
+        file = fopen(filename, mode);
         if (file == NULL) {
             DS_LOG_ERROR("Failed to open file: %s", filename);
             return_defer(-1);
@@ -2641,3 +2698,801 @@ defer:
 }
 
 #endif // DS_IO_IMPLEMENTATION
+
+#ifdef DS_JS_IMPLEMENTATION
+
+typedef enum json_token_kind {
+    JSON_TOKEN_LBRACE,
+    JSON_TOKEN_RBRACE,
+    JSON_TOKEN_LSQRLY,
+    JSON_TOKEN_RSQRLY,
+    JSON_TOKEN_COLON,
+    JSON_TOKEN_COMMA,
+    JSON_TOKEN_BOOLEAN,
+    JSON_TOKEN_NUMBER,
+    JSON_TOKEN_STRING,
+    JSON_TOKEN_NULL,
+    JSON_TOKEN_EOF,
+    JSON_TOKEN_ILLEGAL,
+} json_token_kind;
+
+typedef struct json_token {
+    json_token_kind kind;
+    ds_string_slice value;
+    unsigned int pos;
+} json_token;
+
+typedef struct json_lexer {
+    const char *buffer;
+    unsigned int buffer_len;
+    unsigned int pos;
+    unsigned int read_pos;
+    char ch;
+} json_lexer;
+
+typedef struct json_parser {
+    json_lexer lexer;
+} json_parser;
+
+static unsigned int json_object_hash(const void *key) {
+    unsigned int hash = 0;
+    char *name = (char *)key;
+    for (unsigned int i = 0; i < strlen(name); i++) {
+        hash = 31 * hash + name[i];
+    }
+    return hash % JSON_OBJECT_MAP_MAX_CAPACITY;
+}
+
+static int json_object_compare(const void *k1, const void *k2) {
+    return strcmp((char *)k1, (char *)k2);
+}
+
+static const char* json_token_kind_to_string(json_token_kind kind) {
+    switch (kind) {
+    case JSON_TOKEN_LBRACE: return "[";
+    case JSON_TOKEN_RBRACE: return "]";
+    case JSON_TOKEN_LSQRLY: return "{";
+    case JSON_TOKEN_RSQRLY: return "}";
+    case JSON_TOKEN_COLON: return ":";
+    case JSON_TOKEN_COMMA: return ",";
+    case JSON_TOKEN_BOOLEAN: return "boolean";
+    case JSON_TOKEN_NUMBER: return "number";
+    case JSON_TOKEN_STRING: return "string";
+    case JSON_TOKEN_NULL: return "null";
+    case JSON_TOKEN_EOF: return "<EOF>";
+    case JSON_TOKEN_ILLEGAL: return "ILLEGAL";
+    }
+}
+
+static char json_lexer_peek_ch(json_lexer *lexer) {
+    if (lexer->read_pos >= lexer->buffer_len) {
+        return EOF;
+    }
+
+    return lexer->buffer[lexer->read_pos];
+}
+
+static char json_lexer_read(json_lexer *lexer) {
+    lexer->ch = json_lexer_peek_ch(lexer);
+
+    lexer->pos = lexer->read_pos;
+    lexer->read_pos += 1;
+
+    return lexer->ch;
+}
+
+static void json_lexer_skip_whitespace(json_lexer *lexer) {
+    while (isspace(lexer->ch)) {
+        json_lexer_read(lexer);
+    }
+}
+
+static int json_lexer_init(json_lexer *lexer, const char *buffer, unsigned int buffer_len) {
+    lexer->buffer = buffer;
+    lexer->buffer_len = buffer_len;
+    lexer->pos = 0;
+    lexer->read_pos = 0;
+    lexer->ch = 0;
+
+    json_lexer_read(lexer);
+
+    return 0;
+}
+
+static int json_lexer_tokenize_string(json_lexer *lexer, json_token *token) {
+    int result = 0;
+    unsigned int position = lexer->pos;
+    char *value = NULL;
+
+    if (lexer->ch != '"') {
+        DS_LOG_ERROR("Failed to parse string: expected '\"' but got '%c'", lexer->ch);
+        return_defer(1);
+    }
+
+    json_lexer_read(lexer);
+
+    ds_string_slice slice = { .str = (char *)lexer->buffer + lexer->pos, .len = 0 };
+    while (lexer->ch != '"') {
+        char ch = lexer->ch;
+        slice.len += 1;
+        json_lexer_read(lexer);
+
+        if (ch == '\\' && lexer->ch == '"') {
+            slice.len += 1;
+            json_lexer_read(lexer);
+        }
+    }
+
+    json_lexer_read(lexer);
+
+    *token = (json_token){.kind = JSON_TOKEN_STRING, .value = slice, .pos = position };
+
+defer:
+    return result;
+}
+
+static int json_lexer_tokenize_ident(json_lexer *lexer, json_token *token) {
+    int result = 0;
+    unsigned int position = lexer->pos;
+    char *value = NULL;
+
+    if (!islower(lexer->ch)) {
+        DS_LOG_ERROR("Failed to parse ident: expected islower but got '%c'", lexer->ch);
+        return_defer(1);
+    }
+
+    ds_string_slice slice = { .str = (char *)lexer->buffer + lexer->pos, .len = 0 };
+    while (islower(lexer->ch)) {
+        slice.len += 1;
+        json_lexer_read(lexer);
+    }
+
+    if (ds_string_slice_to_owned(&slice, &value) != 0) {
+        DS_LOG_ERROR("Failed to allocate string");
+        return_defer(1);
+    }
+
+    if (strcmp(value, "null") == 0) {
+        *token = (json_token){.kind = JSON_TOKEN_NULL, .value = 0, .pos = position };
+    } else if (strcmp(value, "true") == 0 || strcmp(value, "false") == 0) {
+        *token = (json_token){.kind = JSON_TOKEN_BOOLEAN, .value = slice, .pos = position };
+    } else {
+        *token = (json_token){.kind = JSON_TOKEN_ILLEGAL, .value = slice, .pos = position };
+    }
+
+defer:
+    DS_FREE(NULL, value);
+    return result;
+}
+
+static int json_lexer_tokenize_number(json_lexer *lexer, json_token *token) {
+    int result = 0;
+    unsigned int position = lexer->pos;
+    char *value = NULL;
+
+    int found_dot = 0;
+
+    if (!(isdigit(lexer->ch) || lexer->ch == '.' || lexer->ch == '-')) {
+        DS_LOG_ERROR("Failed to parse number: expected digit, '.' or '-' but got '%c'", lexer->ch);
+        return_defer(1);
+    }
+
+    ds_string_slice slice = { .str = (char *)lexer->buffer + lexer->pos, .len = 0 };
+
+    if (lexer->ch == '-') {
+        slice.len += 1;
+        json_lexer_read(lexer);
+    }
+
+    while (isdigit(lexer->ch) || (lexer->ch == '.' && found_dot == 0)) {
+        if (lexer->ch == '.') {
+            found_dot = 1;
+        }
+
+        slice.len += 1;
+        json_lexer_read(lexer);
+    }
+
+    *token = (json_token){.kind = JSON_TOKEN_NUMBER, .value = slice, .pos = position };
+
+defer:
+    return result;
+}
+
+static int json_lexer_next(json_lexer *lexer, json_token *token) {
+    int result = 0;
+    json_lexer_skip_whitespace(lexer);
+
+    unsigned int position = lexer->pos;
+    if (lexer->ch == EOF) {
+        json_lexer_read(lexer);
+        *token = (json_token){.kind = JSON_TOKEN_EOF, .value = 0, .pos = position };
+        return_defer(0);
+    } else if (lexer->ch == '{') {
+        json_lexer_read(lexer);
+        *token = (json_token){.kind = JSON_TOKEN_LSQRLY, .value = 0, .pos = position };
+        return_defer(0);
+    } else if (lexer->ch == '}') {
+        json_lexer_read(lexer);
+        *token = (json_token){.kind = JSON_TOKEN_RSQRLY, .value = 0, .pos = position };
+        return_defer(0);
+    } else if (lexer->ch == '[') {
+        json_lexer_read(lexer);
+        *token = (json_token){.kind = JSON_TOKEN_LBRACE, .value = 0, .pos = position };
+        return_defer(0);
+    } else if (lexer->ch == ']') {
+        json_lexer_read(lexer);
+        *token = (json_token){.kind = JSON_TOKEN_RBRACE, .value = 0, .pos = position };
+        return_defer(0);
+    } else if (lexer->ch == ':') {
+        json_lexer_read(lexer);
+        *token = (json_token){.kind = JSON_TOKEN_COLON, .value = 0, .pos = position };
+        return_defer(0);
+    } else if (lexer->ch == ',') {
+        json_lexer_read(lexer);
+        *token = (json_token){.kind = JSON_TOKEN_COMMA, .value = 0, .pos = position };
+        return_defer(0);
+    } else if (lexer->ch == '"') {
+        return_defer(json_lexer_tokenize_string(lexer, token));
+    } else if (islower(lexer->ch)) {
+        return_defer(json_lexer_tokenize_ident(lexer, token));
+    } else if (isdigit(lexer->ch) || lexer->ch == '.' || lexer->ch == '-') {
+        return_defer(json_lexer_tokenize_number(lexer, token));
+    } else {
+        char *value = NULL;
+        ds_string_slice slice = { .str = (char *)lexer->buffer + lexer->pos, .len = 1 };
+
+        json_lexer_read(lexer);
+
+        *token = (json_token){.kind = JSON_TOKEN_ILLEGAL, .value = slice, .pos = position };
+
+        return_defer(0);
+    }
+
+defer:
+    return result;
+}
+
+static int json_lexer_peek(json_lexer *lexer, json_token *token) {
+    unsigned int pos = lexer->pos;
+    unsigned int read_pos = lexer->read_pos;
+    unsigned int ch = lexer->ch;
+
+    int result = json_lexer_next(lexer, token);
+
+    lexer->pos = pos;
+    lexer->read_pos = read_pos;
+    lexer->ch = ch;
+
+    return result;
+}
+
+static int json_lexer_pos_to_lc(json_lexer *lexer, int pos, int *line, int *column) {
+    int result = 0;
+    int n = (pos > lexer->buffer_len) ? lexer->buffer_len : pos;
+
+    *line = 1;
+    *column = 1;
+
+    for (int i = 0; i < n; i++) {
+        if (lexer->buffer[i] == '\n') {
+            *line += 1;
+            *column = 0;
+        } else {
+            *column += 1;
+        }
+    }
+
+defer:
+    return result;
+}
+
+static void json_lexer_free(json_lexer *lexer) {
+    lexer->buffer = NULL;
+    lexer->buffer_len = 0;
+    lexer->pos = 0;
+    lexer->read_pos = 0;
+    lexer->ch = 0;
+}
+
+static int json_parser_init(json_parser *parser, json_lexer lexer) {
+    parser->lexer = lexer;
+
+    return 0;
+}
+
+static int json_parser_parse_object(json_parser *parser, json_object *object);
+static int json_parser_parse_map(json_parser *parser, json_object *object);
+static int json_parser_parse_array(json_parser *parser, json_object *object);
+
+static int json_parser_parse_object(json_parser *parser, json_object *object) {
+    int result = 0;
+    json_token token = {0};
+
+    if (json_lexer_next(&parser->lexer, &token) != 0) {
+        DS_LOG_ERROR("Failed to get the next token");
+        return_defer(1);
+    }
+
+    if (token.kind == JSON_TOKEN_LSQRLY) {
+        result = json_parser_parse_map(parser, object);
+    } else if (token.kind == JSON_TOKEN_LBRACE) {
+        result = json_parser_parse_array(parser, object);
+    } else if (token.kind == JSON_TOKEN_STRING) {
+        object->kind = JSON_OBJECT_STRING;
+        if (ds_string_slice_to_owned(&token.value, &object->string) != 0) {
+            DS_LOG_ERROR("Failed to allocate string");
+            return_defer(1);
+        }
+    } else if (token.kind == JSON_TOKEN_NUMBER) {
+        char *value = NULL;
+        object->kind = JSON_OBJECT_NUMBER;
+        if (ds_string_slice_to_owned(&token.value, &value) != 0) {
+            DS_LOG_ERROR("Failed to allocate string");
+            return_defer(1);
+        }
+        object->number = atof(value);
+        DS_FREE(NULL, value);
+    } else if (token.kind == JSON_TOKEN_BOOLEAN) {
+        char *value = NULL;
+        object->kind = JSON_OBJECT_BOOLEAN;
+        if (ds_string_slice_to_owned(&token.value, &value) != 0) {
+            DS_LOG_ERROR("Failed to allocate string");
+            return_defer(1);
+        }
+        object->boolean = (strcmp(value, "true") == 0) ? true : false;
+        DS_FREE(NULL, value);
+    } else if (token.kind == JSON_TOKEN_NULL) {
+        object->kind = JSON_OBJECT_NULL;
+    } else {
+        int line, column;
+        json_lexer_pos_to_lc(&parser->lexer, token.pos, &line, &column);
+        DS_LOG_ERROR("Expected a json object but found %s at %d:%d", json_token_kind_to_string(token.kind), line, column);
+        return_defer(1);
+    }
+
+defer:
+    return result;
+}
+
+static int json_parser_parse_map(json_parser *parser, json_object *object) {
+    int result = 0;
+    json_token token = {0};
+
+    object->kind = JSON_OBJECT_MAP;
+    ds_hashmap_init(&object->map, JSON_OBJECT_MAP_MAX_CAPACITY, json_object_hash, json_object_compare);
+
+    if (json_lexer_next(&parser->lexer, &token) != 0) {
+        DS_LOG_ERROR("Failed to get the next token");
+        return_defer(1);
+    }
+
+    if (token.kind == JSON_TOKEN_RSQRLY) {
+        return_defer(0);
+    }
+
+    while (token.kind != JSON_TOKEN_RSQRLY) {
+        ds_hashmap_kv kv = {0};
+
+        if (token.kind != JSON_TOKEN_STRING) {
+            int line, column;
+            json_lexer_pos_to_lc(&parser->lexer, token.pos, &line, &column);
+            DS_LOG_ERROR("Expected a string but found %s at %d:%d", json_token_kind_to_string(token.kind), line, column);
+            return_defer(1);
+        }
+
+        if (ds_string_slice_to_owned(&token.value, (char **)&kv.key) != 0) {
+            DS_LOG_ERROR("Failed to allocate string");
+            return_defer(1);
+        }
+
+        if (json_lexer_next(&parser->lexer, &token) != 0) {
+            DS_LOG_ERROR("Failed to get the next token");
+            return_defer(1);
+        }
+
+        if (token.kind != JSON_TOKEN_COLON) {
+            int line, column;
+            json_lexer_pos_to_lc(&parser->lexer, token.pos, &line, &column);
+            DS_LOG_ERROR("Expected a colon but found %s at %d:%d", json_token_kind_to_string(token.kind), line, column);
+            return_defer(1);
+        }
+
+        kv.value = DS_MALLOC(NULL, sizeof(json_object));
+        if (kv.value == NULL) {
+            DS_LOG_ERROR("Failed to allocate value for map");
+            return_defer(1);
+        }
+
+        if (json_parser_parse_object(parser, (json_object *)kv.value) != 0) {
+            DS_LOG_ERROR("Failed to parse map value");
+            return_defer(1);
+        }
+
+        if (ds_hashmap_insert(&object->map, &kv) != 0) {
+            DS_LOG_ERROR("Failed to insert item to map");
+            return_defer(1);
+        }
+
+        if (json_lexer_next(&parser->lexer, &token) != 0) {
+            DS_LOG_ERROR("Failed to get the next token");
+            return_defer(1);
+        }
+
+        if (token.kind == JSON_TOKEN_RSQRLY) {
+            break;
+        }
+
+        if (token.kind != JSON_TOKEN_COMMA) {
+            int line, column;
+            json_lexer_pos_to_lc(&parser->lexer, token.pos, &line, &column);
+            DS_LOG_ERROR("Expected a comma but found %s at %d:%d", json_token_kind_to_string(token.kind), line, column);
+            return_defer(1);
+        }
+
+        if (json_lexer_next(&parser->lexer, &token) != 0) {
+            DS_LOG_ERROR("Failed to get the next token");
+            return_defer(1);
+        }
+    }
+
+defer:
+    return result;
+}
+
+static int json_parser_parse_array(json_parser *parser, json_object *object) {
+    int result = 0;
+    json_token token = {0};
+
+    object->kind = JSON_OBJECT_ARRAY;
+    ds_dynamic_array_init(&object->array, sizeof(json_object));
+
+    if (json_lexer_peek(&parser->lexer, &token) != 0) {
+        DS_LOG_ERROR("Failed to get the next token");
+        return_defer(1);
+    }
+
+    if (token.kind == JSON_TOKEN_RBRACE) {
+        return_defer(0);
+    }
+
+    while (token.kind != JSON_TOKEN_RBRACE) {
+        json_object item = {0};
+        if (json_parser_parse_object(parser, &item) != 0) {
+            DS_LOG_ERROR("Failed to parse array item");
+            return_defer(1);
+        }
+
+        if (ds_dynamic_array_append(&object->array, &item) != 0) {
+            DS_LOG_ERROR("Failed to add item to array");
+            return_defer(1);
+        }
+
+        if (json_lexer_next(&parser->lexer, &token) != 0) {
+            DS_LOG_ERROR("Failed to get the next token");
+            return_defer(1);
+        }
+
+        if (token.kind == JSON_TOKEN_RBRACE) {
+            break;
+        }
+
+        if (token.kind != JSON_TOKEN_COMMA) {
+            int line, column;
+            json_lexer_pos_to_lc(&parser->lexer, token.pos, &line, &column);
+            DS_LOG_ERROR("Expected a comma but found %s at %d:%d", json_token_kind_to_string(token.kind), line, column);
+            return_defer(1);
+        }
+    }
+
+defer:
+    return result;
+}
+
+static int json_parser_parse(json_parser *parser, json_object *object) {
+    int result = 0;
+    json_token token = {0};
+
+    if (json_parser_parse_object(parser, object) != 0) {
+        DS_LOG_ERROR("Failed to parse json object");
+        return_defer(1);
+    }
+
+    if (json_lexer_next(&parser->lexer, &token) != 0) {
+        DS_LOG_ERROR("Failed to get the next token");
+        return_defer(1);
+    }
+
+    if (token.kind != JSON_TOKEN_EOF) {
+        int line, column;
+        json_lexer_pos_to_lc(&parser->lexer, token.pos, &line, &column);
+        DS_LOG_ERROR("Expected end of file but found %s at %d:%d", json_token_kind_to_string(token.kind), line, column);
+        return_defer(1);
+    }
+
+defer:
+    return result;
+}
+
+static void json_parser_free(json_parser *parser) { }
+
+static int json_object_debug_indent(json_object *object, int indent) {
+    int result = 0;
+
+    switch (object->kind) {
+    case JSON_OBJECT_STRING:
+        printf("%*s[STRING]: \'%s\'\n", indent, "", object->string);
+        break;
+    case JSON_OBJECT_NUMBER:
+        printf("%*s[NUMBER]: %f\n", indent, "", object->number);
+        break;
+    case JSON_OBJECT_BOOLEAN:
+        printf("%*s[BOOLEAN]: %s\n", indent, "", object->boolean == true ? "true" : "false");
+        break;
+    case JSON_OBJECT_NULL:
+        printf("%*s[NULL]\n", indent, "");
+        break;
+    case JSON_OBJECT_ARRAY:
+        printf("%*s[ARRAY]: [\n", indent, "");
+        for (int i = 0; i < object->array.count; i++) {
+            json_object item = {0};
+            if (ds_dynamic_array_get(&object->array, i, &item) != 0) {
+                DS_LOG_ERROR("Failed to get item from array");
+                return_defer(1);
+            }
+
+            if (json_object_debug_indent(&item, indent + JSON_OBJECT_DUMP_INDENT) != 0) {
+                return_defer(1);
+            }
+        }
+        printf("%*s]\n", indent, "");
+        break;
+    case JSON_OBJECT_MAP:
+        printf("%*s[MAP]: {\n", indent, "");
+        for (int i = 0; i < object->map.capacity; i++) {
+            ds_dynamic_array bucket = object->map.buckets[i];
+
+            for (int j = 0; j < bucket.count; j++) {
+                ds_hashmap_kv kv = {0};
+                if (ds_dynamic_array_get(&bucket, j, &kv) != 0) {
+                    DS_LOG_ERROR("Failed to get item from array");
+                    return_defer(1);
+                }
+
+                printf("%*s[KEY]: \'%s\'\n", indent, "", (char *)kv.key);
+                if (json_object_debug_indent((json_object*)kv.value, indent + JSON_OBJECT_DUMP_INDENT) != 0) {
+                    return_defer(1);
+                }
+            }
+        }
+        printf("%*s}\n", indent, "");
+        break;
+    }
+
+defer:
+    return result;
+}
+
+static int json_object_dump_indent(json_object *object, unsigned int indent, const char *prefix, const char *ending, ds_string_builder *sb) {
+    int result = 0;
+    unsigned int count = 0;
+
+    if (prefix != NULL) {
+        if (ds_string_builder_append(sb, "%s", prefix) != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+    } else {
+        if (ds_string_builder_append(sb, "%*s", indent, "") != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+    }
+
+    switch (object->kind) {
+    case JSON_OBJECT_STRING:
+        if (ds_string_builder_append(sb, "\"%s\"%s", object->string, ending) != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        break;
+    case JSON_OBJECT_NUMBER:
+        if (ds_string_builder_append(sb, "%f%s", object->number, ending) != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        break;
+    case JSON_OBJECT_BOOLEAN:
+        if (ds_string_builder_append(sb, "%s%s", object->boolean == true ? "true" : "false", ending) != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        break;
+    case JSON_OBJECT_NULL:
+        if (ds_string_builder_append(sb, "null%s", ending) != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        break;
+    case JSON_OBJECT_ARRAY:
+        if (ds_string_builder_append(sb, "[\n") != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        for (int i = 0; i < object->array.count; i++) {
+            json_object item = {0};
+            if (ds_dynamic_array_get(&object->array, i, &item) != 0) {
+                DS_LOG_ERROR("Failed to get item from array");
+                return_defer(1);
+            }
+
+            if (json_object_dump_indent(&item, indent + JSON_OBJECT_DUMP_INDENT, NULL, "", sb) != 0) {
+                return_defer(1);
+            }
+
+            if (i < object->array.count - 1) {
+                if (ds_string_builder_append(sb, ",\n") != 0) {
+                    DS_LOG_ERROR("Failed to append string");
+                    return_defer(1);
+                }
+            }
+        }
+        if (ds_string_builder_append(sb, "\n%*s]%s", indent, "", ending) != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        break;
+    case JSON_OBJECT_MAP:
+        count = ds_hashmap_count(&object->map);
+        if (ds_string_builder_append(sb, "{\n") != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        for (int i = 0, index = 0; i < object->map.capacity; i++) {
+            ds_dynamic_array bucket = object->map.buckets[i];
+
+            for (int j = 0; j < bucket.count; j++) {
+                ds_hashmap_kv kv = {0};
+                if (ds_dynamic_array_get(&bucket, j, &kv) != 0) {
+                    DS_LOG_ERROR("Failed to get item from array");
+                    return_defer(1);
+                }
+
+                if (ds_string_builder_append(sb, "%*s\"%s\":", indent + JSON_OBJECT_DUMP_INDENT, "", (char *)kv.key) != 0) {
+                    DS_LOG_ERROR("Failed to append string");
+                    return_defer(1);
+                }
+                if (json_object_dump_indent((json_object*)kv.value, indent + JSON_OBJECT_DUMP_INDENT, " ", "", sb) != 0) {
+                    DS_LOG_ERROR("Failed to dump value");
+                    return_defer(1);
+                }
+
+                index += 1;
+                if (index < count ) {
+                    ds_string_builder_append(sb, ",\n");
+                }
+            }
+        }
+        if (ds_string_builder_append(sb, "\n%*s}%s", indent, "", ending) != 0) {
+            DS_LOG_ERROR("Failed to append string");
+            return_defer(1);
+        }
+        break;
+    }
+
+defer:
+    return result;
+}
+
+// Load json object from a string
+//
+// Returns 0 if parsing successful. Returns 1 if it failed
+DSHDEF int json_object_load(char *buffer, unsigned int buffer_len, json_object *object) {
+    int result = 0;
+    json_lexer lexer = {0};
+    json_parser parser = {0};
+
+    json_lexer_init(&lexer, buffer, buffer_len);
+    json_parser_init(&parser, lexer);
+
+    if (json_parser_parse(&parser, object) != 0) {
+        DS_LOG_ERROR("Failed to parse json");
+        return_defer(1);
+    }
+
+defer:
+    json_parser_free(&parser);
+    json_lexer_free(&lexer);
+    return result;
+}
+
+// Show a debug view of the JSON AST
+//
+// Returns 0 if debug is ok. Returns 1 if it failed
+DSHDEF int json_object_debug(json_object *object) {
+    return json_object_debug_indent(object, 0);
+}
+
+// Print the JSON into a string
+//
+// Returns 0 if dump is ok. Returns 1 if it failed
+DSHDEF int json_object_dump(json_object *object, char **buffer) {
+    int result = 0;
+    ds_string_builder sb = {0};
+
+    ds_string_builder_init(&sb);
+
+    if (json_object_dump_indent(object, 0, NULL, "\n", &sb) != 0) {
+        DS_LOG_ERROR("Failed to dump indent");
+        return_defer(1);
+    }
+
+    if (ds_string_builder_build(&sb, buffer) != 0) {
+        DS_LOG_ERROR("Failed to build string");
+        return_defer(1);
+    }
+
+defer:
+    ds_string_builder_free(&sb);
+    return result;
+}
+
+// Free the JSON object
+//
+// Returns 0 if free is ok. Returns 1 if it failed
+DSHDEF int json_object_free(json_object *object) {
+    int result = 0;
+
+    switch (object->kind) {
+    case JSON_OBJECT_STRING:
+        DS_FREE(NULL, object->string);
+        break;
+    case JSON_OBJECT_NUMBER:
+        break;
+    case JSON_OBJECT_BOOLEAN:
+        break;
+    case JSON_OBJECT_NULL:
+        break;
+    case JSON_OBJECT_ARRAY:
+        for (int i = 0; i < object->array.count; i++) {
+            json_object *item = NULL;
+            if (ds_dynamic_array_get_ref(&object->array, i, (void **)&item) != 0) {
+                DS_LOG_ERROR("Failed to get item from array");
+                return_defer(1);
+            }
+
+            if (json_object_free(item) != 0) {
+                DS_LOG_ERROR("Failed to free json object");
+                return_defer(1);
+            }
+        }
+        ds_dynamic_array_free(&object->array);
+        break;
+    case JSON_OBJECT_MAP:
+        for (int i = 0; i < object->map.capacity; i++) {
+            ds_dynamic_array bucket = object->map.buckets[i];
+
+            for (int j = 0; j < bucket.count; j++) {
+                ds_hashmap_kv kv = {0};
+                if (ds_dynamic_array_get(&bucket, j, &kv) != 0) {
+                    DS_LOG_ERROR("Failed to get item from array");
+                    return_defer(1);
+                }
+
+                DS_FREE(NULL, kv.key);
+                if (json_object_free(kv.value) != 0) {
+                    DS_LOG_ERROR("Failed to free json object");
+                    return_defer(1);
+                }
+                DS_FREE(NULL, kv.value);
+            }
+        }
+        ds_hashmap_free(&object->map);
+        break;
+    }
+
+defer:
+    return result;
+}
+
+#endif // DS_JS_IMPLEMENTATION
